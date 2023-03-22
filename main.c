@@ -1,58 +1,60 @@
 /**@file main.c        @PROJECT_NAME "ServoTester2"
-*****************************************************************************
+
 @brief  Exercise servo movement while monitoring current demand from servo.
-   Servo movement sweeps either side of mid position, the range of sweep 
-   controlled by a potentiometer, from zero sweep through to max sweep.
-   500ms after a sweep the direction changes. 
+   Servo movement sweeps either side of mid position,
+    sweep controlled by a potentiometer, from zero sweep through to max sweep.
+   1000ms after a sweep, the direction changes. 
    A toggle switch inhibits the direction change.
    Pot configuration allows normal sweep (1ms/2ms) or wide sweep (0.5ms/2.5ms).
-   If servo current GT 20mA then Yellow LED lights.
-   If servo current GT 500mA then Red LED lights.
-   If servo current LT 2mA then LEDs do an alternate blink on, at 500ms.
-   If Vdd drops below 4.5v then LEDs do an alternate blink off, at 500ms.
+   If servo current < 20mA then Yellow LED light.
+   If servo current >= 20mA then Yellow+green LEDs light.
+   If servo current > 500mA then Red LED light.
+   If Vdd drops below 4.5v then yellow LED blinks off, at 500ms.
 
 @author (c)2022 Dave Harris, Andover, UK.  (MERG member 2740 'WortingUK')
 @copyright Creative Commons BY-NC-SA (Attribution-NonCommercial-ShareAlike)
  
-@version 0.1
+@version 1.0
 
 @history 23-Nov-2022 v0.0 DH started
 @history 17-Jan-2023 v0.1 DH stable 
+@history 22-Mar-2023 v1.0 DH production
 
 @brief Environment
    Language  C  Version C99.
    IDE       Microchip MPLAB X v5.50, using MCC (MPLAB Code Configurator) v4.
    Compiler  XC8 v2.32 (free). Device Family Pack: PIC16F1xxxx_DFP (v1.13.178)
-   MCU       Microchip PIC16F18313 
-   PCB       KiCad project design ready.
+   MCU       Microchip PIC16F18313   SOIC-8 package
+   PCB       KiCad project.
+   Panel     OpenSCAD project 
 
 @brief Peripheral configuration (Setup in MCC)
    FOSC - HFINTOSC 32MHz
    TMR0 - 8 bit, FOSC/4, PreScaler 1:1, period 10.0us, interrupt (generate PWM)
-   FVR  - ADFVR gain x1 = 1.024V   used by ADC VPREF
+   FVR  - ADFVR gain x1 = 1.024V -  used by ADC VPREF
    ADC  - 10 bit, FOSC/32 (TAD 1.0us), Conversion 11.5us, right align.
-          ADC VPREF is either VDD (for pot reading) or FVR (Amp sense reading)
+          ADC VPREF is VDD (read pot or read FVR) or FVR (Amp sense)
 
 @brief MCU pin/port usage
   Pins names configured in MCC and defined in pin_manager.h
-            PIN_RED, PIN_YELLOW, PIN_SERVO, PIN_AN_POT, PIN_AN_SENSE, PIN_SW1
-    PIC 16F1xxxx top view        +---_---+   DIP/SOIC package
-                        VDD 5.0V | 1   8 | VSS 0V
-             LED red - 2k2 < RA5 | 2   7 | RA0/ICSPDAT - AN0 < Pot sweep setting
-   Current 0R5 sense > AN4 - RA4 | 3   6 | RA1/ICSPCLK - RA1 > 2k2 - LED yellow
-    HoldSW > ^RA3 - RA3/MCLR/VPP | 4   5 | RA2  > Servo
-                                 +-------+                         ^ has WPU
+      names PIN_LED2, PIN_YELLOW, PIN_SERVO, PIN_AN_POT, PIN_AN_SENSE, PIN_SW1
+    PIC 16F1xxxx top view        +---_---+ 
+                      5.0V - VDD | 1   8 | VSS - 0V
+      LEDs red/green - 3k3 - RA5 | 2   7 | RA0/ICSPDAT - AN0 - Pot sweep setting
+   Current 0R5 sense - AN4 - RA4 | 3   6 | RA1/ICSPCLK - RA1 - 3k3 - LED yellow
+    HoldSW - ^RA3 - RA3/MCLR/VPP | 4   5 | RA2 - Servo signal
+                                 +-------+                           ^ has WPU
     Current sense input has an 70ms RC low pass filter, 10k + 10uF.
     The ICSP header is also the operational potentiometer/switch connections.
 
 @brief Memory usage summary
-    Program space        used   299h (   665) of   800h words   ( 32.5%)
+    Program space        used   288h (   648) of   800h words   ( 31.6%)
     Data space           used    24h (    36) of   100h bytes   ( 14.1%)
 */
 
 
 /****************************************************************************
-@brief include/libraries
+@brief includes headers/libraries
 */
 
 #include "main.h" /* main header - data type, constant, global variable */
@@ -60,7 +62,7 @@
 
 /****************************************************************************
 @brief function testForVDDfault() - Show fault if VDD is low.
-   VDD measure = ADC of FVR, and ADPREF is the variable VDD.
+   Measure FVR with plus ref as the variable VDD.
    Called every 20ms.
 
 @param  none
@@ -74,15 +76,15 @@ void testForVDDfault(void)
     if(vddValue > VDDTHRES_4_5)                         /* value is inverse */
     {
         TMR0_StopTimer();
-        PIN_SERVO_SetDigitalInput();
+        PIN_SERVO_SetDigitalInput();   /* disable servo signal */
 
-        for(uint8_t count20ms = 0; count20ms < 150; count20ms++)  /* 3s */
+        for(uint8_t count20ms = 0; count20ms < 150; count20ms++)  /* 3 sec */
         {
             yellowBlink(BLINK_OFF);
-            __delay_ms(20);
+            __delay_ms(20);          /* blocks code  */
         }
-        PIN_SERVO_SetDigitalOutput();
-        TMR0_StartTimer(); /* exit to allow a retry */
+        PIN_SERVO_SetDigitalOutput();   /* enable servo signal */
+        TMR0_StartTimer(); /* allow a retry */
     }
 }
 
@@ -101,7 +103,7 @@ count_dc_t readPotDCcount(void)
     setAdcPosRefVolt(ADPREF_VDD);
     count_dc_t DCvalue = (count_dc_t)(ADC_GetConversion(PIN_AN_POT) / 10);
     
-    if(DCvalue > 100) /* DCvalue could be GT 101 or LE 102 */
+    if(DCvalue > 100) /* DCvalue could be 101 or 102 */
     {
         DCvalue = 100;
     }
@@ -209,38 +211,30 @@ void decodeAmpsToLED(adc_result_t mA)
     {
         count0 = 0;
         PIN_YELLOW_SetLow();         /* Yellow pin low, so off*/
-        PIN_LED2_SetDigitalOutput(); /* ensure LED2 is output */
+        PIN_LED2_SetDigitalOutput(); /* ensure LED2 is enabled */
         PIN_LED2_SetHigh();          /* Red on due to yellow low */
     }
     else
-    if(mA > mA_20)        /*greater than 20mA show yellow + green */
-    {
-        count0 = 0;
-        PIN_LED2_SetDigitalOutput(); /* ensure LED2 is output */
-        PIN_LED2_SetLow();           /* Green on, Red off */
-        PIN_YELLOW_SetHigh();        /* Yellow on */
-    }
-    else
-    if(mA == 0)  /* less than 2mA , blink yellow only */
-    {
-        if(count0++ > 25)
+        if(mA >= mA_20)        /* >= 20mA show yellow + green */
         {
-            yellowBlink(BLINK_ON);
+            count0 = 0;
+            PIN_LED2_SetDigitalOutput(); /* ensure LED2 is enabled */
+            PIN_LED2_SetLow();           /* Green on, Red off */
+            PIN_YELLOW_SetHigh();        /* Yellow on */
         }
-    }
-    else /* between 2mA and 20mA, show yellow only*/
-    {
-        count0 = 0;
-        PIN_LED2_SetDigitalInput(); /* red/green LED off */
-        PIN_YELLOW_SetHigh();       /* yellow on */
-    }
+        else /* between less than 20mA, show yellow only*/
+        {
+            count0 = 0;
+            PIN_LED2_SetDigitalInput(); /* red/green LED disabled */
+            PIN_YELLOW_SetHigh();       /* yellow on */
+        }
 }
 
 
 /***************************************************************************
 @brief function processServo() - process servo duty cycle movement
 
-@remark Uses global vars pwmDCcount, isPwmDone and countIsr20ms
+@remark Uses globals g_pwmDCcount, g_isPwmDone, g_countIsr20ms
 
 @param[in] enum phase_t phase
 @param[in] count20ms_t duration20ms - duration count in 20ms steps
@@ -249,39 +243,40 @@ void decodeAmpsToLED(adc_result_t mA)
 
 void processServo(enum phase_t phase, count_20ms_t duration20ms)
 { 
-    countIsr20ms = 0;
+    g_countIsr20ms = 0;
     do
     {
-        while(! pwmDoneFlag);          /* sync to end of PWM pulse */
-        pwmDoneFlag = false;
+        while(! g_pwmDoneFlag);          /* sync to end of PWM pulse */
+        g_pwmDoneFlag = false;
         
         switch(phase)
         {
-            case PHASE_MINUS:
-                pwmDCcount = DC_1point5ms - readPotDCcount(); /* deduct sweep */
+            case PHASE_MINUS:   /* deduct sweep */
+                g_pwmDCcount = DC_1point5ms - readPotDCcount(); 
                 break;
-            case PHASE_PLUS:
-                pwmDCcount = DC_1point5ms + readPotDCcount(); /* add sweep */
+            case PHASE_PLUS:   /* add sweep */
+                g_pwmDCcount = DC_1point5ms + readPotDCcount();
                 break;
             case PHASE_CENTER:              /* just 1.50 ms  */
-                pwmDCcount = DC_1point5ms;
+                g_pwmDCcount = DC_1point5ms;
                 break;
         };
         testForVDDfault();
         decodeAmpsToLED(readSenseAmps());
     }
-    while(countIsr20ms < duration20ms);
+    while(g_countIsr20ms < duration20ms);
 }
 
 
 /****************************************************************************
 @brief function ISR_PWM_TMR0() - servo PWM generator, on TMR0 overflow at 10us
 
-@remark Uses global vars countIsr20ms, isPwmDone and pwmDCcount
-    Call TMR0_SetInterruptHandler(* PWM_TMR0_ISR) before this
-    call TMR0_Initialize() before this.
+@remark  Before this...
+            call TMR0_SetInterruptHandler(* PWM_TMR0_ISR)
+            call TMR0_Initialize()
     This code must be very fast, since its called every 10us.
-
+    Modifies globals g_countIsr20ms, g_isPwmDone and g_pwmDCcount.
+ 
 @param  none
 @return none
 */
@@ -294,16 +289,16 @@ void PWM_TMR0_ISR(void)
     {
         count10us = 0;
         PIN_SERVO_SetHigh();            /* set PWM pulse */
-        countIsr20ms++;
-        pwmDoneFlag = false;
-        return;                         /* do an early exit */
+        g_countIsr20ms++;
+        g_pwmDoneFlag = false;
+        return;                         /* early exit */
     }
-    if(count10us == pwmDCcount)
+    if(count10us == g_pwmDCcount)
     {
         PIN_SERVO_SetLow();             /* clear PWM pulse */
-        pwmDoneFlag = true;
+        g_pwmDoneFlag = true;
     }
-}                                       /* return from interrupt */
+}                             /* return from interrupt */
 
 
 /****************************************************************************
@@ -327,7 +322,7 @@ void main(void)
 
     while(true) /* loop forever */
     {
-        if(PIN_SW1_GetValue() == 1)           /* in Run mode?  */
+        if(PIN_SW1_GetValue() == SW1_RUN)
         {
             if(phase == PHASE_MINUS)
             {

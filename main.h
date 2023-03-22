@@ -35,6 +35,12 @@ enum phase_t
     PHASE_CENTER
 };
 
+enum sw1_t
+{
+    SW1_RUN = 1,
+    SW1_HOLD = 0
+};
+
 enum adPref_t {ADPREF_VDD, ADPREF_FVR};
 
 typedef uint8_t count_dc_t;
@@ -64,7 +70,7 @@ enum mA_threshold_t /* one ADC bit = 1mV, with ADC ref 1.024V */
     mA_1000 = 500,  /* RSENSE x 1000mA = 500  */
 };
 
-enum VddThres_t /* VDD measure = ADC of FVR chan & ADPREF is the variable VDD */
+enum VddThres_t /* VDD measure = ADC of FVR chan & ADPREF is variable VDD */
 {
     VDDTHRES_4_9 = 214, /* = (1024 x 1.024) / VDD = 1048.576 / 4.9 = 213.99 */
     VDDTHRES_4_8 = 218,
@@ -102,13 +108,14 @@ void yellowBlink(enum blink_t blink); /* blink or flash LED  */
 @brief Global variables
 */
 
-volatile count_dc_t pwmDCcount = 150; /* 150 x 20ms = 1.50ms mid travel pulse */
-                                     /* limits: 50 = 0.5ms to 250 = 2.50ms */
+volatile count_dc_t g_pwmDCcount = 150; /* target PWM duty cycle */ 
+                                        /* 150x10us =1.50ms mid travel pulse */
+                                        /* limits: 50 = 0.5ms to 250 =2.50ms */
 
-volatile count_20ms_t countIsr20ms = 0; /* 0 to 255. 255 x 20ms = 5.1s */
+volatile count_20ms_t g_countIsr20ms = 0;   /* 0 to 255. 255 x 20ms = 5.1s */
 
 
-volatile _Bool pwmDoneFlag; /* PWM pulse complete flag. Reset by processServo */
+volatile uint8_t g_pwmDoneFlag;             /* PWM pulse complete flag. */
 
 
 /**************************** End of File **********************************/
