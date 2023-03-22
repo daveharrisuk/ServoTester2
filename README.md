@@ -1,2 +1,2 @@
 # ServoTester2
-!(ServoTester2 schematic.png)
+![schematic](ServoTester2 schematic.png)
