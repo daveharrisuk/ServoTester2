@@ -6,6 +6,7 @@ Servo movement sweeps either side of mid position 1.50ms duty cycle,
 - sweep controlled by a potentiometer, from zero sweep through to max degree of sweep.
 - 1000ms after a sweep, the sweep direction changes. 
 A toggle switch inhibits the direction change (run or pause).
+ While in pause, the servo will track any pot movements.
 
 LEDs indicate servo current...
 - Less than 500mA then Yellow light.
