@@ -11,4 +11,4 @@ LEDs indicate servo current...
 - Less than 500mA then Yellow light.
 - Between 20mA and 500mA then Yellow and Green light.
 - Greater than 500mA then Red light.
-- Low VDD (<4.75v) will blink off Yellow at 1 sec rate
+- Low VDD (<4.75v) will blink off Yellow at 500ms rate
