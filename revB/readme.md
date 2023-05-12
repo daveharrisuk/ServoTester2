@@ -1,6 +1,4 @@
-# ServoTester2 RevB
-
-- Work In Progress
+# ServoTester2 revB
 
 ![revB](ServoTester2_PCB_front.png "revB front")
 ![revB](ServoTester2_PCB_back.png "revB back")
