@@ -15,5 +15,6 @@ A toggle switch inhibits the direction change (run or pause).
 - Low VDD (<4.70v) will blink off Yellow at 500ms rate (operation suspended for 2sec).
 
 Revision A - required a 3D printed panel. Rsense was 0R5.
+
 Revision B1 - the PCB is the panel. 
  Rsense reduced to 0R2. Con: reduced minimum detection current. Pro: lower Voltage loss on servo.
