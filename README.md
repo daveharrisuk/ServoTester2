@@ -18,3 +18,5 @@ Revision A - required a 3D printed panel. Rsense was 0R5.
 
 Revision B1 - the PCB is the panel. 
  Rsense reduced to 0R2. Con: reduced minimum detection current. Pro: lower Voltage loss on servo.
+ 
+![revB](ServoTester2_revB1_PCB_front.png "revB front")
