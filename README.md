@@ -8,11 +8,11 @@ Servo movement sweeps either side of mid position 1.50ms duty cycle,
 A toggle switch inhibits the direction change (run or pause).
  While in pause, the servo will track any pot movements.
 
-3 LEDs indicate servo current... (currents are average NOT peak)
+3 LEDs indicate servo current... (currents are average and NOT peak)
 - Less than 250mA then Yellow light.
-- Between 25mA and 250mA then Yellow and Green light.
 - Greater than 250mA then Red light.
-- Low VDD (<4.70v) will blink off Yellow at 500ms rate (operation suspended for 2sec).
+- Between 25mA and 250mA then Green light.
+- UnderVolt(4.70v) or OverAmp(600mA) Yellow blink on at 500ms rate (operation suspended for 2sec).
 
 Revision A - required a 3D printed panel. Rsense was 0R5.
 
